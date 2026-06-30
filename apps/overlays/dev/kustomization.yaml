@@ -6,10 +6,13 @@ namespace: todos-api-dev
 resources:
   - namespace.yaml
   - ../../base
-  - ../../base/game-2048
 
 patches:
   - path: todos-api/todos-api-dev.yaml
     target:
       kind: Deployment
       name: todo-api
+  - path: game-2048/game-2048-dev.yaml
+    target:
+      kind: Ingress
+      name: game-2048

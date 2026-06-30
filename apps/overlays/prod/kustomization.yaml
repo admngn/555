@@ -12,3 +12,7 @@ patches:
     target:
       kind: Deployment
       name: todo-api
+  - path: game-2048/game-2048-prod.yaml
+    target:
+      kind: Ingress
+      name: game-2048

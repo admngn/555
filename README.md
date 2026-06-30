@@ -9,20 +9,20 @@ Repo GitOps pour le déploiement de la **todo-api** et du **game-2048** via Argo
 ```
 gitops-lumieres/
 ├── apps/
-│   └── todo-api/
-│       ├── base/                        # Manifests K8s de base (Kustomize)
-│       │   ├── todos-api/               # Deployment + Service de la todo-api
-│       │   └── game-2048/               # Deployment + Service + Ingress + Namespace
-│       └── overlays/
-│           ├── dev/                     # Env dev : 1 replica + game-2048
-│           └── prod/                    # Env prod : 3 replicas
+│   ├── base/                            # Manifests K8s de base (Kustomize)
+│   │   ├── kustomization.yaml           # Déclare les apps : todos-api + game-2048
+│   │   ├── todos-api/                   # Deployment + Service de la todo-api
+│   │   └── game-2048/                   # Deployment + Service + Ingress du jeu 2048
+│   └── overlays/
+│       ├── dev/                         # Env dev  : ns todos-api-dev,  todo-api 1 replica
+│       └── prod/                        # Env prod : ns todos-api-prod, todo-api 3 replicas
 ├── apps-code/
-│   └── docker-2048/                     # Code source + Dockerfile du jeu 2048
-├── argocd/
-│   └── applications/                   # Application CRDs ArgoCD
-│       ├── argo-dev.yaml               # App dev → namespace todo-api-dev
-│       └── argo-prod.yaml              # App prod → namespace todo-api-prod
-└── todo-api-python/                    # Code source de la todo-api (FastAPI)
+│   ├── docker-2048/                     # Code source + Dockerfile du jeu 2048
+│   └── todo-api-python/                 # Code source de la todo-api (FastAPI)
+└── argocd/
+    └── applications/                    # Application CRDs ArgoCD
+        ├── argo-dev.yaml                # App dev  → namespace todos-api-dev
+        └── argo-prod.yaml               # App prod → namespace todos-api-prod
 ```
 
 ---
@@ -32,7 +32,9 @@ gitops-lumieres/
 | App | Image | Dev | Prod |
 |-----|-------|-----|------|
 | todo-api | `adame555/todo-api:v1.0.0` | 1 replica | 3 replicas |
-| game-2048 | `adame555/docker-2048:v3` | oui | non |
+| game-2048 | `adame555/docker-2048:v3` | 2 replicas | 2 replicas |
+
+Les deux applications sont déclarées dans `apps/base` et partagent le namespace de chaque environnement (`todos-api-dev` en dev, `todos-api-prod` en prod).
 
 ---
 
@@ -89,7 +91,7 @@ Ouvre **https://localhost:8080** (login: `admin`)
 ### todo-api (dev)
 
 ```bash
-kubectl port-forward svc/todo-api -n todo-api-dev 8000:80
+kubectl port-forward svc/todo-api -n todos-api-dev 8000:80
 ```
 
 Endpoints disponibles :
@@ -97,10 +99,16 @@ Endpoints disponibles :
 - `POST http://localhost:8000/todos/`
 - `GET  http://localhost:8000/health`
 
-### game-2048 (dev uniquement)
+### game-2048
+
+Via l'Ingress (host différent par environnement) :
+- dev  : **http://game-dev.172-189-159-185.sslip.io**
+- prod : **http://game-prod.172-189-159-185.sslip.io**
+
+Ou en port-forward :
 
 ```bash
-kubectl port-forward svc/game-2048 -n game-2048 8082:80
+kubectl port-forward svc/game-2048 -n todos-api-dev 8082:80
 ```
 
 Ouvre **http://localhost:8082**
@@ -111,17 +119,16 @@ Ouvre **http://localhost:8082**
 
 ### Kustomize plutôt que Helm
 
-Kustomize permet de séparer clairement la configuration de base des surcharges par environnement sans templating complexe. Chaque overlay (`dev`/`prod`) patche uniquement ce qui diffère (replicas, namespace).
+Kustomize permet de séparer clairement la configuration de base des surcharges par environnement sans templating complexe. Les deux apps (todo-api + game-2048) sont déclarées une seule fois dans `apps/base`, et chaque overlay (`dev`/`prod`) ne fait qu'« appeler » la base puis patche ce qui diffère (replicas, namespace).
 
-### game-2048 uniquement en dev
+### Apps déclarées dans la base, appelées par les overlays
 
-Le jeu 2048 est une app de démonstration incluse dans l'overlay `dev` pour tester le déploiement multi-app. Quand elle sera validée, il suffira d'ajouter `../../base/game-2048` dans `overlays/prod/kustomization.yaml`.
+`apps/base/kustomization.yaml` agrège les manifests des deux applications. Chaque overlay référence `../../base` et applique son `namespace:` global, ce qui place toutes les ressources dans le namespace de l'environnement. game-2048 n'embarque donc plus son propre namespace.
 
-### Un seul cluster, deux namespaces
+### Un seul cluster, deux namespaces communs
 
-- `todo-api-dev` → environnement de développement (1 replica)
-- `todo-api-prod` → environnement de production (3 replicas)
-- `game-2048` → namespace dédié au jeu
+- `todos-api-dev` → environnement de développement (todo-api 1 replica + game-2048)
+- `todos-api-prod` → environnement de production (todo-api 3 replicas + game-2048)
 
 ---
 
@@ -129,6 +136,7 @@ Le jeu 2048 est une app de démonstration incluse dans l'overlay `dev` pour test
 
 | Namespace | App | Replicas | Géré par |
 |-----------|-----|----------|----------|
-| `todo-api-dev` | todo-api | 1 | ArgoCD app `dev` |
-| `todo-api-prod` | todo-api | 3 | ArgoCD app `prod` |
-| `game-2048` | game-2048 | 2 | ArgoCD app `dev` |
+| `todos-api-dev` | todo-api | 1 | ArgoCD app `dev` |
+| `todos-api-dev` | game-2048 | 2 | ArgoCD app `dev` |
+| `todos-api-prod` | todo-api | 3 | ArgoCD app `prod` |
+| `todos-api-prod` | game-2048 | 2 | ArgoCD app `prod` |

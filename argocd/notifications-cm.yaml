@@ -25,14 +25,14 @@ data:
     email:
       subject: "[ALERTE] {{.app.metadata.name}} est en panne"
     message: |
-      L'application ArgoCD "{{.app.metadata.name}}" est DEGRADED.
-      Namespace: {{.app.spec.destination.namespace}}
-      Détail santé: {{.app.status.health.message}}
+      L'application ArgoCD "{{.app.metadata.name}}" est en état {{.app.status.health.status}}.
+      Environnement (chemin Git): {{.app.spec.source.path}}
+      Repo: {{.app.spec.source.repoURL}}
 
   template.app-sync-failed: |
     email:
       subject: "[ALERTE] Échec de synchronisation - {{.app.metadata.name}}"
     message: |
       La synchronisation de "{{.app.metadata.name}}" a échoué.
-      Namespace: {{.app.spec.destination.namespace}}
+      Environnement (chemin Git): {{.app.spec.source.path}}
       Phase: {{.app.status.operationState.phase}}

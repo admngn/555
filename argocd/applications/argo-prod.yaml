@@ -11,7 +11,7 @@ spec:
   source:
     repoURL: https://github.com/admngn/555.git
     targetRevision: HEAD
-    path: apps/overlays/dev
+    path: apps/overlays/prod
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.email.gmail: |
+    host: smtp.gmail.com
+    port: 587
+    username: $email-username
+    password: $email-password
+    from: $email-username
+
+  trigger.on-health-degraded: |
+    - description: Application is degraded (pod en erreur)
+      when: app.status.health.status == 'Degraded'
+      send: [app-health-degraded]
+
+  trigger.on-sync-failed: |
+    - description: Application sync failed
+      when: app.status.operationState.phase in ['Error', 'Failed']
+      send: [app-sync-failed]
+
+  template.app-health-degraded: |
+    email:
+      subject: "[ALERTE] {{.app.metadata.name}} est en panne"
+    message: |
+      L'application ArgoCD "{{.app.metadata.name}}" est DEGRADED.
+      Namespace: {{.app.spec.destination.namespace}}
+      Détail santé: {{.app.status.health.message}}
+
+  template.app-sync-failed: |
+    email:
+      subject: "[ALERTE] Échec de synchronisation - {{.app.metadata.name}}"
+    message: |
+      La synchronisation de "{{.app.metadata.name}}" a échoué.
+      Namespace: {{.app.spec.destination.namespace}}
+      Phase: {{.app.status.operationState.phase}}

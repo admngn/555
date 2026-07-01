@@ -1,14 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: prod
+  name: dev
   namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-health-degraded.gmail: mougammadouzaafir@gmail.com
+    notifications.argoproj.io/subscribe.on-sync-failed.gmail: mougammadouzaafir@gmail.com
 spec:
   project: default
   source:
     repoURL: https://github.com/admngn/555.git
     targetRevision: HEAD
-    path: apps/overlays/prod
+    path: apps/overlays/dev
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:

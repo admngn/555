@@ -4,8 +4,8 @@ metadata:
   name: prod
   namespace: argocd
   annotations:
-    notifications.argoproj.io/subscribe.on-health-degraded.gmail: mougammadouzaafir@gmail.com
-    notifications.argoproj.io/subscribe.on-sync-failed.gmail: mougammadouzaafir@gmail.com
+    notifications.argoproj.io/subscribe.on-health-degraded.gmail: zaafir.mougammadou-zaccaria@supdevinci-edu.fr
+    notifications.argoproj.io/subscribe.on-sync-failed.gmail: zaafir.mougammadou-zaccaria@supdevinci-edu.fr
 spec:
   project: default
   source:

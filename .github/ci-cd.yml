@@ -7,9 +7,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
 ### Lint & sonarcloud ####
     steps:
-    
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
         with:

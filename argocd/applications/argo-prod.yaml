@@ -9,7 +9,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/admngn/555.git
+    repoURL: https://github.com/admngn/gitops-lumieres.git
     targetRevision: HEAD
     path: apps/overlays/prod
   destination:

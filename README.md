@@ -6,7 +6,11 @@ Repo GitOps pour le déploiement de la **todo-api** et du **game-2048** via Argo
 
 ## Architecture
 
-![alt text](image.png)
+![Architecture GitOps du projet](architecture.png)
+
+Deux flux distincts, reliés uniquement par Git :
+- **CI (intégration)** : un push déclenche GitHub Actions → analyse SonarCloud.
+- **CD (déploiement)** : ArgoCD surveille le repo, synchronise le cluster ; Argo Rollouts pilote la mise à jour progressive (canary) de la todo-api.
 
 ```
 gitops-lumieres/

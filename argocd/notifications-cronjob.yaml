@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: notifications-status-report
+  namespace: argocd
+spec:
+  schedule: "0 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: argocd-notifications-controller
+          restartPolicy: OnFailure
+          containers:
+            - name: notify
+              image: quay.io/argoproj/argocd:v3.4.4
+              command:
+                - sh
+                - -c
+                - |
+                  argocd admin notifications template notify app-status-report dev --recipient gmail:zaafir.mougammadou-zaccaria@supdevinci-edu.fr -n argocd
+                  argocd admin notifications template notify app-status-report prod --recipient gmail:zaafir.mougammadou-zaccaria@supdevinci-edu.fr -n argocd

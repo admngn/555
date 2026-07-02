@@ -6,6 +6,8 @@ Repo GitOps pour le déploiement de la **todo-api** et du **game-2048** via Argo
 
 ## Architecture
 
+![alt text](image.png)
+
 ```
 gitops-lumieres/
 ├── apps/
@@ -15,14 +17,22 @@ gitops-lumieres/
 │   │   └── game-2048/                   # Deployment + Service + Ingress du jeu 2048
 │   └── overlays/
 │       ├── dev/                         # Env dev  : ns todos-api-dev,  todo-api 1 replica
+│       │   ├── todos-api/               # Patch replicas=1
+│       │   └── game-2048/               # Patch host Ingress (game-dev.*)
 │       └── prod/                        # Env prod : ns todos-api-prod, todo-api 3 replicas
+│           ├── todos-api/               # Patch replicas=3
+│           └── game-2048/               # Patch host Ingress (game-prod.*)
 ├── apps-code/
 │   ├── docker-2048/                     # Code source + Dockerfile du jeu 2048
 │   └── todo-api-python/                 # Code source de la todo-api (FastAPI)
-└── argocd/
-    └── applications/                    # Application CRDs ArgoCD
-        ├── argo-dev.yaml                # App dev  → namespace todos-api-dev
-        └── argo-prod.yaml               # App prod → namespace todos-api-prod
+├── argocd/
+│   ├── applications/                    # Application CRDs ArgoCD
+│   │   ├── argo-dev.yaml                # App dev  → namespace todos-api-dev
+│   │   └── argo-prod.yaml               # App prod → namespace todos-api-prod
+│   ├── ingress.yaml                     # Ingress Traefik pour l'UI ArgoCD
+│   └── notifications-cm.yaml            # Notifications email (sync failed / health degraded)
+└── .github/workflows/
+    └── ci-cd.yml                        # CI : scan SonarCloud de la todo-api
 ```
 
 ---
@@ -71,22 +81,49 @@ kubectl apply -f argocd/applications/argo-prod.yaml
 
 ArgoCD synchronise automatiquement depuis ce repo Git et déploie les ressources dans les namespaces correspondants.
 
+### 4. Exposer l'UI ArgoCD via Ingress
+
+L'UI est exposée via Traefik (plus besoin de port-forward permanent). Le serveur doit servir en HTTP (Traefik termine la connexion) :
+
+```bash
+# Passer argocd-server en mode insecure
+kubectl patch configmap argocd-cmd-params-cm -n argocd \
+  --type merge -p '{"data":{"server.insecure":"true"}}'
+kubectl rollout restart deployment argocd-server -n argocd
+
+# Appliquer l'Ingress
+kubectl apply -f argocd/ingress.yaml
+```
+
+### 5. (Optionnel) Activer les notifications email
+
+```bash
+kubectl apply -f argocd/notifications-cm.yaml
+
+# Renseigner les identifiants SMTP Gmail (mot de passe d'application)
+kubectl create secret generic argocd-notifications-secret -n argocd \
+  --from-literal=email-username='ton-email@gmail.com' \
+  --from-literal=email-password='mot-de-passe-application'
+```
+
+Les Applications `dev`/`prod` sont abonnées aux triggers `on-sync-failed` et `on-health-degraded` (voir annotations dans `argocd/applications/`).
+
 ---
 
 ## Accéder aux services
+
+> Le cluster k3d expose Traefik via son loadbalancer sur `localhost:8080` (HTTP).
+> Les hosts `*.127-0-0-1.sslip.io` résolvent vers `127.0.0.1` ; on y accède donc sur le port `8080`.
 
 ### UI ArgoCD
 
 ```bash
 # Récupérer le mot de passe admin
 kubectl -n argocd get secret argocd-initial-admin-secret \
-  -o jsonpath="{.data.password}" | base64 -d
-
-# Exposer l'UI
-kubectl port-forward svc/argocd-server -n argocd 8080:443
+  -o jsonpath="{.data.password}" | base64 -d ; echo
 ```
 
-Ouvre **https://localhost:8080** (login: `admin`)
+Ouvre **http://argocd.127-0-0-1.sslip.io:8080** (login: `admin`)
 
 ### todo-api (dev)
 
@@ -102,8 +139,8 @@ Endpoints disponibles :
 ### game-2048
 
 Via l'Ingress (host différent par environnement) :
-- dev  : **http://game-dev.172-189-159-185.sslip.io**
-- prod : **http://game-prod.172-189-159-185.sslip.io**
+- dev  : **http://game-dev.127-0-0-1.sslip.io:8080**
+- prod : **http://game-prod.127-0-0-1.sslip.io:8080**
 
 Ou en port-forward :
 
@@ -129,6 +166,18 @@ Kustomize permet de séparer clairement la configuration de base des surcharges 
 
 - `todos-api-dev` → environnement de développement (todo-api 1 replica + game-2048)
 - `todos-api-prod` → environnement de production (todo-api 3 replicas + game-2048)
+
+### Accès local via Traefik + sslip.io
+
+k3d expose Traefik sur `localhost:8080`. Les Ingress utilisent des hosts `*.127-0-0-1.sslip.io` (résolution DNS automatique vers `127.0.0.1`), ce qui évite d'éditer `/etc/hosts`. Chaque overlay patche le host de game-2048 pour éviter tout conflit de route Traefik entre dev et prod.
+
+### CI : SonarCloud
+
+Le workflow `.github/workflows/ci-cd.yml` lance un scan qualité SonarCloud sur le code de la todo-api (`apps-code/todo-api-python`) à chaque push sur `main`. Nécessite le secret GitHub `SONAR_TOKEN`.
+
+### Notifications ArgoCD
+
+`argocd/notifications-cm.yaml` configure des alertes email (Gmail SMTP) déclenchées quand une application passe en `Degraded` ou qu'une synchronisation échoue. Les destinataires sont définis via les annotations `notifications.argoproj.io/subscribe.*` sur chaque Application.
 
 ---
 

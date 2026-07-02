@@ -2,7 +2,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - todos-api/deployment.yaml
+  - todos-api/rollout.yaml
   - todos-api/service.yaml
   - game-2048
 

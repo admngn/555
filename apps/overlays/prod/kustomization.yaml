@@ -10,7 +10,7 @@ resources:
 patches:
   - path: todos-api/todos-api-prod.yaml
     target:
-      kind: Deployment
+      kind: Rollout
       name: todo-api
   - path: game-2048/game-2048-prod.yaml
     target:

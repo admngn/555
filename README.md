@@ -13,7 +13,7 @@ gitops-lumieres/
 ├── apps/
 │   ├── base/                            # Manifests K8s de base (Kustomize)
 │   │   ├── kustomization.yaml           # Déclare les apps : todos-api + game-2048
-│   │   ├── todos-api/                   # Deployment + Service de la todo-api
+│   │   ├── todos-api/                   # Rollout (canary) + Service de la todo-api
 │   │   └── game-2048/                   # Deployment + Service + Ingress du jeu 2048
 │   └── overlays/
 │       ├── dev/                         # Env dev  : ns todos-api-dev,  todo-api 1 replica
@@ -108,6 +108,20 @@ kubectl create secret generic argocd-notifications-secret -n argocd \
 
 Les Applications `dev`/`prod` sont abonnées aux triggers `on-sync-failed` et `on-health-degraded` (voir annotations dans `argocd/applications/`).
 
+### 6. Installer Argo Rollouts (déploiements canary)
+
+La todo-api est un `Rollout` (et non un `Deployment`), il faut donc le contrôleur Argo Rollouts dans le cluster :
+
+```bash
+kubectl create namespace argo-rollouts
+kubectl apply -n argo-rollouts \
+  -f https://github.com/argoproj/argo-rollouts/releases/latest/download/install.yaml
+kubectl wait --for=condition=available deployment/argo-rollouts -n argo-rollouts --timeout=120s
+
+# (optionnel) plugin CLI pour le dashboard de démo
+brew install argoproj/tap/kubectl-argo-rollouts
+```
+
 ---
 
 ## Accéder aux services
@@ -178,6 +192,25 @@ Le workflow `.github/workflows/ci-cd.yml` lance un scan qualité SonarCloud sur 
 ### Notifications ArgoCD
 
 `argocd/notifications-cm.yaml` configure des alertes email (Gmail SMTP) déclenchées quand une application passe en `Degraded` ou qu'une synchronisation échoue. Les destinataires sont définis via les annotations `notifications.argoproj.io/subscribe.*` sur chaque Application.
+
+### Déploiement progressif : canary avec Argo Rollouts
+
+La todo-api est déployée via un `Rollout` (Argo Rollouts) plutôt qu'un `Deployment` classique. À chaque nouvelle version, le trafic bascule **progressivement** : 10 % → pause 30 s → 50 % → pause 30 s → 100 %. Si les nouveaux pods ne passent pas leurs probes, la montée s'arrête et l'ancienne version reste en place — la prod n'est jamais cassée d'un coup.
+
+**Canary plutôt que blue/green :** le canary expose la nouvelle version à une fraction réelle du trafic avant généralisation, ce qui permet de détecter un problème avec un impact minimal, sans doubler les ressources comme le ferait un blue/green.
+
+Piloter et observer un rollout :
+
+```bash
+# Suivre la progression du canary en direct
+kubectl argo rollouts get rollout todo-api -n todos-api-prod --watch
+
+# Promouvoir manuellement l'étape suivante (si pause manuelle)
+kubectl argo rollouts promote todo-api -n todos-api-prod
+
+# Annuler et revenir à la version stable
+kubectl argo rollouts abort todo-api -n todos-api-prod
+```
 
 ---
 

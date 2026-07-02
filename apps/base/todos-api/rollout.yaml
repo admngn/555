@@ -1,5 +1,5 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
 metadata:
   name: todo-api
   labels:
@@ -9,6 +9,16 @@ spec:
   selector:
     matchLabels:
       app: todo-api
+  strategy:
+    canary:
+      # Montée progressive du trafic sur la nouvelle version :
+      # 10% -> observer -> 50% -> observer -> 100%
+      steps:
+        - setWeight: 10
+        - pause: { duration: 30s }
+        - setWeight: 50
+        - pause: { duration: 30s }
+        - setWeight: 100
   template:
     metadata:
       labels:

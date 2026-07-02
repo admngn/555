@@ -36,3 +36,13 @@ data:
       La synchronisation de "{{.app.metadata.name}}" a échoué.
       Environnement (chemin Git): {{.app.spec.source.path}}
       Phase: {{.app.status.operationState.phase}}
+
+  template.app-status-report: |
+    email:
+      subject: "[Rapport horaire] {{.app.metadata.name}} : {{.app.status.health.status}}"
+    message: |
+      Rapport automatique (toutes les heures).
+      Application: {{.app.metadata.name}}
+      État de santé: {{.app.status.health.status}}
+      État de synchronisation: {{.app.status.sync.status}}
+      Environnement (chemin Git): {{.app.spec.source.path}}
